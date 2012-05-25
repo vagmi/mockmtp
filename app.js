@@ -1,4 +1,3 @@
-
 /**
  * Module dependencies.
  */
@@ -13,7 +12,7 @@ var express = require('express')
   , routes = require('./routes');
 
 var app = module.exports = express.createServer();
-var smtp = simplesmtp.createServer({debug: true, validateSender: false, validateRecipients: false});
+var smtp = simplesmtp.createServer({debug: true, validateSender: false, validateRecipients: false, secureConnection: false, requireAuthentication: true});
 var db = mongoose.connect('mongodb://localhost/mockmtp');
 var MailParser = mailparser.MailParser;
 // Configuration
@@ -60,10 +59,24 @@ smtp.on("dataReady", function(envelope, callback){
       envelope.model.to = mail_object.to;
       envelope.model.html= mail_object.html;
       envelope.model.text= mail_object.text;
+      envelope.model.inbox_id = envelope.inbox_id;
       envelope.model.save();
     });
   envelope.mailparser.end();
   callback(null,envelope.model._id);
+});
+
+smtp.on("authorizeUser", function(envelope, userName, password, callback){
+  models.Inbox.find({name:userName,code: password}, function(err,docs){
+    if(docs.length > 0){
+      console.log("I have found the doc")
+      envelope.inbox_id = docs[0]._id;
+      callback(null,true);
+    }
+    else{
+      callback(true,null);
+    }
+  });
 });
 
 // Routes
